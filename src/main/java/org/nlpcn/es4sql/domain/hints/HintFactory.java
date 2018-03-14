@@ -3,6 +3,7 @@ package org.nlpcn.es4sql.domain.hints;
 
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.fasterxml.jackson.dataformat.yaml.YAMLParser;
+import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.common.xcontent.yaml.YamlXContentParser;
 import org.nlpcn.es4sql.exception.SqlParseException;
 
@@ -97,7 +98,7 @@ public class HintFactory {
                 YAMLParser yamlParser = null;
                 try {
                 yamlParser = yamlFactory.createParser(heighlightParam.toCharArray());
-                YamlXContentParser yamlXContentParser = new YamlXContentParser(yamlParser);
+                YamlXContentParser yamlXContentParser = new YamlXContentParser(NamedXContentRegistry.EMPTY, yamlParser);
                 Map<String, Object> map = yamlXContentParser.map();
                 hintParams.add(map);
                 } catch (IOException e) {
@@ -139,16 +140,25 @@ public class HintFactory {
             }
             return new Hint(HintType.MINUS_USE_TERMS_OPTIMIZATION, new Object[]{shouldLowerStringOnTerms});
         }
-
+        if (hintAsString.startsWith("! COLLAPSE")) {
+            String collapse = getParamFromHint(hintAsString, "! COLLAPSE");
+            return new Hint(HintType.COLLAPSE, new String[]{collapse});
+        }
+        if (hintAsString.startsWith("! POST_FILTER")) {
+            String postFilter = getParamFromHint(hintAsString, "! POST_FILTER");
+            return new Hint(HintType.POST_FILTER, new String[]{postFilter});
+        }
 
         return null;
     }
 
-
+    private static String getParamFromHint(String hint, String prefix) {
+        if (!hint.contains("(")) return null;
+        return hint.replace(prefix, "").replaceAll("\\s*\\(\\s*", "").replaceAll("\\s*\\,\\s*", ",").replaceAll("\\s*\\)\\s*", "");
+    }
     private static String[] getParamsFromHint(String hint, String prefix) {
-        if(!hint.contains("(")) return null;
-        String onlyParams = hint.replace(prefix, "").replaceAll("\\s*\\(\\s*","").replaceAll("\\s*\\,\\s*", ",").replaceAll("\\s*\\)\\s*", "");
-        return onlyParams.split(",");
+        String param = getParamFromHint(hint, prefix);
+        return param != null ? param.split(",") : null;
     }
     private static Integer[] parseParamsAsInts(String hintAsString,String startWith) {
         String[] number = getParamsFromHint(hintAsString,startWith);
